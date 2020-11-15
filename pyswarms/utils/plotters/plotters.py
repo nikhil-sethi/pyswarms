@@ -71,7 +71,6 @@ import logging
 # Import modules
 import matplotlib.pyplot as plt
 import numpy as np
-import multiprocessing as mp
 from matplotlib import animation, cm
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -147,7 +146,6 @@ def plot_contour(
     designer=None,
     mesher=None,
     animator=None,
-    n_processes=None,
     **kwargs
 ):
     """Draw a 2D contour map for particle trajectories
@@ -175,8 +173,6 @@ def plot_contour(
         Mesher class for mesh plots
     animator : :obj:`pyswarms.utils.formatters.Animator`, optional
         Animator class for custom animation
-    n_processes : int
-        number of processes to use for parallel mesh point calculation (default: None = no parallelization)
     **kwargs : dict
         Keyword arguments that are passed as a keyword argument to
         :obj:`matplotlib.axes.Axes` plotting function
@@ -218,7 +214,7 @@ def plot_contour(
 
         # Make a contour map if possible
         if mesher is not None:
-            xx, yy, zz, = _mesh(mesher, n_processes=n_processes)
+            xx, yy, zz, = _mesh(mesher)
             ax.contour(xx, yy, zz, levels=mesher.levels)
 
         # Mark global best if possible
@@ -253,7 +249,6 @@ def plot_surface(
     mesher=None,
     animator=None,
     mark=None,
-    n_processes=None,
     **kwargs
 ):
     """Plot a swarm's trajectory in 3D
@@ -312,8 +307,6 @@ def plot_surface(
         Mesher class for mesh plots
     animator : :obj:`pyswarms.utils.formatters.Animator`, optional
         Animator class for custom animation
-    n_processes : int
-        number of processes to use for parallel mesh point calculation (default: None = no parallelization)
     **kwargs : dict
         Keyword arguments that are passed as a keyword argument to
         :class:`matplotlib.axes.Axes` plotting function
@@ -361,7 +354,7 @@ def plot_surface(
 
         # Make a contour map if possible
         if mesher is not None:
-            xx, yy, zz, = _mesh(mesher, n_processes=n_processes)
+            xx, yy, zz, = _mesh(mesher)
             ax.plot_surface(
                 xx, yy, zz, cmap=designer.colormap, alpha=mesher.alpha
             )
@@ -402,7 +395,7 @@ def _animate(i, data, plot):
     return (plot,)
 
 
-def _mesh(mesher, n_processes=None):
+def _mesh(mesher):
     """Helper function to make a mesh"""
     xlim = mesher.limits[0]
     ylim = mesher.limits[1]
@@ -410,24 +403,7 @@ def _mesh(mesher, n_processes=None):
     y = np.arange(ylim[0], ylim[1], mesher.delta)
     xx, yy = np.meshgrid(x, y)
     xypairs = np.vstack([xx.reshape(-1), yy.reshape(-1)]).T
-
     # Get z-value
-
-    # Setup Pool of processes for parallel evaluation
-    pool = None if n_processes is None else mp.Pool(n_processes)
-
-    if pool is None:
-        z = mesher.func(xypairs)
-    else:
-        results = pool.map(
-            mesher.func,
-            np.array_split(xypairs, pool._processes),
-        )
-        z = np.concatenate(results)
-
-    # Close Pool of Processes
-    if n_processes is not None:
-        pool.close()
-
+    z = mesher.func(xypairs)
     zz = z.reshape(xx.shape)
     return (xx, yy, zz)
